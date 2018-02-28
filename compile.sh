@@ -1,0 +1,2 @@
+make prog_avx_final
+make prep_small_index_files
