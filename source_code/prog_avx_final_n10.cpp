@@ -1,5 +1,5 @@
 const int NUM_GENES = 10174;
-const int NUM_SIG = 476251;
+const int NUM_SIG = 10;
 const int NUM_Q = 2013;
 const int MAX_THREADS = 20;
 const int BUFFER = 60000;
@@ -370,7 +370,7 @@ class Buffer {
 
   void add(PII p){
     std::unique_lock<std::mutex> l(lock);
-
+    cerr << "Buffer has hit the add funtion" << endl;
     not_full.wait(l, [this](){return q_cnt != BUFFER; });
 
     q_buffer[q_end] = p;
@@ -382,7 +382,7 @@ class Buffer {
 
   PII get(){
     std::unique_lock<std::mutex> l(lock);
-
+    cerr << "Buffer.get called" << endl;
     not_empty.wait(l, [this](){return q_cnt != 0; });
 
     PII res = q_buffer[q_beg];
@@ -405,16 +405,11 @@ struct Reader {
 
   void load_signature_new(int idx, float *output) {
     int elts_read = fread(output, sizeof(float), NUM_GENES, fsig);
-    cerr << "Number of elements read = " << (elts_read) << endl;
     assert(elts_read == NUM_GENES);
   }
 
   void load_rank(int idx, short int *output) {
-    cerr << "output:" << (output) << ". idx: " << (idx) << endl;
     int elts_read = fread(output, sizeof(short int), NUM_GENES, frank);
-    cerr << "Number of rank elements read = " << (elts_read) << endl;
-    cerr << "feof(frank) returns: " << (feof(frank)) << " for index: " << (idx) << endl;
-    cerr << "ferror(frank) returns: " << (ferror(frank)) << " for index: " << (idx) << endl;
     assert(elts_read == NUM_GENES);
   }
 
@@ -423,7 +418,6 @@ struct Reader {
     finish = _finish;
     fsig = fopen(((start == 0 ? PATH : PATH2)+"/score_trans_small.bin").c_str(), "r");
     frank = fopen(((start == 0 ? PATH : PATH2)+"/rank_trans_small.bin").c_str(), "r");
-    cerr << ((start == 0 ? PATH : PATH2)+"/rank_trans_small.bin").c_str() << endl;
     if (start != 0) {
       int err = fseek(fsig, (long)start * NUM_GENES * sizeof(float), SEEK_SET);
       assert(err == 0);
@@ -443,8 +437,6 @@ struct Reader {
 
       st_disk.start();
       load_signature_new(p.ND, tab_sig[p.ST]);
-      cerr << "p.ND value:" << (p) << endl;
-      cerr << "tab_order[p.ST] :" << (*tab_order[p.ST]) << endl;
       load_rank(p.ND, tab_order[p.ST]);
       st_disk.stop();
 
@@ -496,11 +488,11 @@ void thread_writer(int q) {
 
 void thread_solve(int id, int q) {
   double tmp[2 * q];
-
+  cerr << "First line of thread_solve" << endl;
   while (true) {
     PII p = buffer_sig.get();
     if (p.ST < 0) break;
-
+    cerr << "buffer_sig.get() successful. p.ST = " << (p.ST) << endl;
     int bid = p.ST;
     int sig = p.ND;
 
@@ -511,11 +503,13 @@ void thread_solve(int id, int q) {
     }
     if (bid < BUFFER/2) buffer_ids1.add(MP(bid, bid));
     else buffer_ids2.add(MP(bid, bid));
+    cerr << "before the mutex lock" << endl;
     {
       std::unique_lock<std::mutex> l(lock_writer);
       written_flag[sig] = 1;
       cond_writer.notify_one();
     }
+    cerr << "after the mutex lock" << endl;
   }
   double finish_time = Time::get_time();
   fprintf(stderr, "thread %d finished %.6lf\n", id, finish_time);
@@ -540,12 +534,14 @@ void getWTKScomb(vector <string> up, vector <string> down) {
   thread reader2 = thread(thread_wrapper, 1);
 
   if (NUM_THREADS == 1) {
-    cerr << "We only have one thread." << endl;
+    cerr << "num-threads=1 at line 535" << endl;
     thread_solve(0, q);
+    cerr << "thread_solve reached" << endl;
     reader1.join();
+    cerr << "reader 1 finished" << endl;
     reader2.join();
+    cerr << "reader 2 finished" << endl;
   } else {
-    cerr << "We have more than 1 thread." << endl;
     thread threads[MAX_THREADS];
     REP(i, NUM_THREADS) threads[i] = thread(thread_solve, i, q);
     reader1.join();
@@ -558,9 +554,7 @@ void getWTKScomb(vector <string> up, vector <string> down) {
 
 
 VS load_queries(string filename) {
-  DB(filename);
   FILE *f = fopen(filename.c_str(), "r");
-  cerr << "Made it past the fopen call" << endl;
   VS res;
   while (fgets(line, MAX_LINE, f)) {
     int pos = 0;
@@ -642,32 +636,26 @@ int main(int argc, char **argv){
   DB(OUT_FILE);
   DB(CALC_SIG);
   assert(NUM_THREADS <= MAX_THREADS);
-  cerr << "Made it past the assert call" << endl;
+
   FILE *f = fopen((PATH+"/gene_ids.txt").c_str(), "r");
-  cerr << "Made it past the file open gene_ids.txt call" << endl;
   VI v;
   int x;
-  cerr << "Made it to the fscan call" << endl;
   while (fscanf(f, "%d", &x) == 1) v.PB(x);
   assert(SIZE(v) == NUM_GENES);
-  
+//  DB(v);
+
   VS up = load_queries(UP_FILE);
   VS down = load_queries(DOWN_FILE);
-  cerr << "Made it past the load_queries call" << endl;
-  
-if (!TEST) {
-    cerr << "Apparently we are testing?" << endl;
+
+  if (!TEST) {
     f = fopen((PATH+"/fp32_truth250_data.bin").c_str(), "r");
     x = fread(truth, sizeof(float), 250 * NUM_SIG, f);
     assert(x == 250 * NUM_SIG);
     REP(i,5) REP(j,5) fprintf(stderr, "i=%d j=%d truth=%.6lf\n", i, j, truth[i*250+j]);
   }
-  
-  cerr << "Starting 'init_genes' function" << endl;
+
   init_genes(v);
-  cerr << "Finished 'init_genes' function. Starting 'getWTKScomb'..." << endl;
   getWTKScomb(up, down);
-  cerr << "getWTKScomb completed." << endl;
   st_full.stop();
   if (!TEST) {
     int good = 0;

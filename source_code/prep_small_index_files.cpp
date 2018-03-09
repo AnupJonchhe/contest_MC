@@ -123,8 +123,10 @@ Stoper STOPER(st_pow);
 const int MAX_LINE = 1000000;
 char line[MAX_LINE];
 
+string name1, name2;
+
 void load_rank(int idx, int *output) {
-  FILE *f = fopen("data/rank_trans.bin", "r");
+  FILE *f = fopen(name1.c_str(), "r");
   int err = fseek(f, (long)idx * NUM_GENES * sizeof(int), SEEK_SET);
   assert(err == 0);
   int elts_read = fread(output, sizeof(int), NUM_GENES, f);
@@ -133,7 +135,7 @@ void load_rank(int idx, int *output) {
 }
 
 void load_signature(int idx, double *output) {
-  FILE *f = fopen("data/score_trans.bin", "r");
+  FILE *f = fopen(name2.c_str(), "r");
   int err = fseek(f, (long)idx * NUM_GENES * sizeof(double), SEEK_SET);
   assert(err == 0);
   int elts_read = fread(output, sizeof(double), NUM_GENES, f);
@@ -142,38 +144,42 @@ void load_signature(int idx, double *output) {
 }
 
 int main(int argc, char **argv){
-
-  /*
-  FILE *f = fopen("data/rank_trans.bin", "r");
-  FILE *f2 = fopen("data/rank_trans_small.bin", "w");
-
-  int rank[NUM_GENES];
-  short int short_order[NUM_GENES];
-  REP(i, NUM_SIG) {
-    load_rank(i, rank);
-    REP(j, NUM_GENES) short_order[rank[j]-1] = j;
-    int x = fwrite(short_order, sizeof(short int), NUM_GENES, f2);
-    assert(x == NUM_GENES);
-    if (i % 1000 == 0) DB(i);
+  if (argc != 5) {
+    fprintf(stderr, "Usage %s orig_rank_trans new_rank_trans orig_score_trans new_score_trans\n", argv[0]);
+    exit(1);
   }
-  fclose(f);
-  fclose(f2);
-  */
+  name1 = argv[1];
+  name2 = argv[3];
 
-  FILE *f = fopen("data/score_trans.bin", "r");
-  FILE *f2 = fopen("data/score_trans_small.bin", "w");
+  {
+    FILE *f2 = fopen(argv[2], "w");
 
-  double score[NUM_GENES];
-  float float_score[NUM_GENES];
-  REP(i, NUM_SIG) {
-    load_signature(i, score);
-    REP(j, NUM_GENES) float_score[j] = fabs(score[j]);
-    int x = fwrite(float_score, sizeof(float), NUM_GENES, f2);
-    assert(x == NUM_GENES);
-    if (i % 1000 == 0) DB(i);
+    int rank[NUM_GENES];
+    short int short_order[NUM_GENES];
+    REP(i, NUM_SIG) {
+      load_rank(i, rank);
+      REP(j, NUM_GENES) short_order[rank[j]-1] = j;
+      int x = fwrite(short_order, sizeof(short int), NUM_GENES, f2);
+      assert(x == NUM_GENES);
+      if (i % 1000 == 0) DB(i);
+    }
+    fclose(f2);
   }
-  fclose(f);
-  fclose(f2);
+
+  {
+    FILE *f2 = fopen(argv[4], "w");
+
+    double score[NUM_GENES];
+    float float_score[NUM_GENES];
+    REP(i, NUM_SIG) {
+      load_signature(i, score);
+      REP(j, NUM_GENES) float_score[j] = fabs(score[j]);
+      int x = fwrite(float_score, sizeof(float), NUM_GENES, f2);
+      assert(x == NUM_GENES);
+      if (i % 1000 == 0) DB(i);
+    }
+    fclose(f2);
+  }
 
   return 0;
 }
