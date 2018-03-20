@@ -370,9 +370,9 @@ class Buffer {
 
   void add(PII p){
     std::unique_lock<std::mutex> l(lock);
-    cerr << "Buffer has hit the add funtion" << endl;
+//    cerr << "Buffer has hit the add funtion. q_cnt = " << (q_cnt) << endl;
     not_full.wait(l, [this](){return q_cnt != BUFFER; });
-
+//    cerr << "buffer is not full?" << endl;
     q_buffer[q_end] = p;
     q_end = (q_end + 1) % BUFFER;
     ++q_cnt;
@@ -382,14 +382,18 @@ class Buffer {
 
   PII get(){
     std::unique_lock<std::mutex> l(lock);
-    cerr << "Buffer.get called" << endl;
+    cerr << "Buffer.get called. q_cnt: " << (q_cnt) << endl;
     not_empty.wait(l, [this](){return q_cnt != 0; });
-
+    
+    cerr << "line 386. q_cnt: " << (q_cnt) << endl;
     PII res = q_buffer[q_beg];
+    cerr << "line 390. res = " << (res) << endl;
     q_beg = (q_beg + 1) % BUFFER;
     --q_cnt;
 
+    cerr << "line 393. q_cnt: " << (q_cnt) << endl;
     not_full.notify_one();
+    cerr << "line 394. not_full.notify_one() passed." << endl;
     return res;
   }
 } buffer_sig, buffer_ids1, buffer_ids2;
@@ -491,6 +495,7 @@ void thread_solve(int id, int q) {
   cerr << "First line of thread_solve" << endl;
   while (true) {
     PII p = buffer_sig.get();
+    cerr << "Return from Buffer::get() was successful" << endl;
     if (p.ST < 0) break;
     cerr << "buffer_sig.get() successful. p.ST = " << (p.ST) << endl;
     int bid = p.ST;
